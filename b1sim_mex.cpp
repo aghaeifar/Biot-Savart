@@ -13,7 +13,7 @@ current  : a cell describes wiring pattern
 		   current{j}.stop  = [4, 3, 3];
 fov_grids: n*3 
 
-/*
+*/
 
 #include "mex.h"
 #include <stdio.h>
