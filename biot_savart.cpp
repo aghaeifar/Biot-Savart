@@ -4,69 +4,86 @@
 #include <iostream>
 #include <numeric>
 #include <cmath>
-#include "biot_savart.h"
+#include <vector>   
 
-#ifdef MATLAB_MEX_FILE 
-#include "mex.h"
-#include "matrix.h"
-#endif
+// ---------------------------------------------------------
+// C++ implementation of magnetic field due to a finite-length straight wire carrying a 1A using Biot-Savart law
+// Author: A. Aghaeifar (ali.aghaeifar.mri [at] gmail.com)
+// Date: 2024-2-02
+// reference: https://physics.stackexchange.com/questions/662024/
+// ---------------------------------------------------------
 
-const float coef1 = 4.0/3.0;
-const float coef2 = 1.0/3.0;
+const float tooSmall = 1e-10;
 
-void integrate(const float *dL, 
-                const float *R,
-                float *b1)
+inline float dot(const float *a, const float *b)
 {
-    float r  = sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2]);
-    float ir = 1.f / (r * r * r);
-
-    b1[0] = ir * (dL[1] * R[2] - dL[2] * R[1]);
-    b1[1] = ir * (dL[2] * R[0] - dL[0] * R[2]);
-    b1[2] = ir * (dL[0] * R[1] - dL[1] * R[0]);
+    return (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]);
 }
+
+inline void cross(const float *a, const float *b, float *c)
+{
+    c[0] = a[1]*b[2] - a[2]*b[1];
+    c[1] = a[2]*b[0] - a[0]*b[2];
+    c[2] = a[0]*b[1] - a[1]*b[0];
+}
+
+inline float norm (const float *a)
+{
+    return sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+}
+
 
 void core(const float *start,
                 const float *end,
                 const float *grid,
                 float *b1)
 {
-    float start_end[3]  = {end[0] + start[0] , end[1] + start[1] , end[2] + start[2]};
-    float mid[3]        = {0.5f*start_end[0] , 0.5f*start_end[1] , 0.5f*start_end[2]};
-    float mid_up[3]     = {0.75f*start_end[0], 0.75f*start_end[1], 0.75f*start_end[2]};
-    float mid_down[3]   = {0.25f*start_end[0], 0.25f*start_end[1], 0.25f*start_end[2]};
+    float end_grid[3]   = {(end[0] - grid[0])  , (end[1] - grid[1])  , (end[2] - grid[2])};
+    float start_grid[3] = {(start[0] - grid[0]), (start[1] - grid[1]), (start[2] - grid[2])};
+    float end_start[3]  = {(end[0] - start[0]) , (end[1] - start[1]) , (end[2] - start[2])};
+    float norm_end_start = norm(end_start);
+    float norm_end_grid  = norm(end_grid);
+    float norm_start_grid= norm(start_grid);
+    // distance from grid to the wire segment = end_grid * cos(phi)
+    float dist[3];
+    
+    cross(end_grid, end_start, dist);
+    
+    dist[0] = dist[0] / norm_end_start;
+    dist[1] = dist[1] / norm_end_start;
+    dist[2] = dist[2] / norm_end_start;
+    float distance = norm(dist);
 
-    float dL_full[3]    = {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
-    float dL_half[3]    = {0.5f*dL_full[0], 0.5f*dL_full[1], 0.5f*dL_full[2]};
+    float cos_theta1 = dot(end_grid, end_start) / (norm_end_grid * norm_end_start);
+    float cos_theta2 = dot(start_grid, end_start) / (norm_start_grid * norm_end_start);
+    // absolute value of B1
+    float absB1 = distance > tooSmall ? (cos_theta1 - cos_theta2) / distance : 0.f;
+    // direction of B1
+    float dir[3];
+    cross(end_grid, end_start, dir);
 
-    float R[3]          = {grid[0] - mid[0]     , grid[1] - mid[1]     , grid[2] - mid[2]};
-    float R_up[3]       = {grid[0] - mid_up[0]  , grid[1] - mid_up[1]  , grid[2] - mid_up[2]};
-    float R_down[3]     = {grid[0] - mid_down[0], grid[1] - mid_down[1], grid[2] - mid_down[2]};
+    // we need normalized dir
+    float norm_dir = norm(dir);
+    absB1 = norm_dir > tooSmall? absB1/norm_dir : 0.f;
 
-    float b1_full[3]    = {0.f};
-    float b1_up[3]      = {0.f};
-    float b1_down[3]    = {0.f};
-
-    integrate(dL_full, R, b1_full);
-    integrate(dL_half, R_up, b1_up);
-    integrate(dL_half, R_down, b1_down);
-
-    b1[0] += coef1*(b1_up[0] + b1_down[0]) - coef2*b1_full[0];
-    b1[1] += coef1*(b1_up[1] + b1_down[1]) - coef2*b1_full[1];
-    b1[2] += coef1*(b1_up[2] + b1_down[2]) - coef2*b1_full[2];
+    b1[0] += dir[0] * absB1;
+    b1[1] += dir[1] * absB1;
+    b1[2] += dir[2] * absB1;
 }
 
 
 
-bool calculate_b1(const uint32_t num_seg, 
-                  const float *seg_start_xyz, 
-                  const float *seg_end_xyz, 
-                  const uint32_t num_grid, 
-                  const float *grid_xyz, 
-                  float *b1_xyz)
+bool calculate_b1(const uint32_t num_seg,     // number of wire segments
+                  const float *seg_start_xyz, // head of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+                  const float *seg_end_xyz,   // tail of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+                  const uint32_t num_grid,    // number of spatial points where B1 is calculated
+                  const float *grid_xyz,      // spatial points [m], 3xM matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+                  float *b1_xyz               // output B1 field [mT], 3xM matrix, column-major order {Bx1,By1,Bz1,...,Bxm,Bym,Bzm}
+                  )
 { 
+    // reset b1
     std::fill(b1_xyz, b1_xyz + 3*num_grid, 0.f);
-
+    // loop over wire segments
     for (int seg = 0; seg < num_seg; seg++)
     {
         const float *start = seg_start_xyz + 3*seg;
@@ -88,15 +105,17 @@ bool calculate_b1(const uint32_t num_seg,
     }
 
     for (uint32_t grid = 0; grid < 3*num_grid; grid++)
-        b1_xyz[grid] *= 1e-7;
+        b1_xyz[grid] *= 1e-4; // convert to mT
 
     return true;
 }
 
+// ---------------------------------------------------------
+// C interface
+// ---------------------------------------------------------
 
-#ifdef __cplusplus
 extern "C" {
-#endif
+
 bool simulate(const uint32_t num_seg, 
               const float *seg_start_xyz, 
               const float *seg_end_xyz, 
@@ -106,53 +125,39 @@ bool simulate(const uint32_t num_seg,
 { 
     return calculate_b1(num_seg, seg_start_xyz, seg_end_xyz, num_grid, grid_xyz, b1_xyz);
 }
-#ifdef __cplusplus
+
 } // extern "C"
-#endif
 
 
+
+// ---------------------------------------------------------
+// MATLAB interface
+// ---------------------------------------------------------
 #ifdef MATLAB_MEX_FILE 
 
-_T* getPointer(const mxArray *prhs)
-{
-    #ifdef __SINGLE_PRECISION__
-    return mxGetSingles(prhs);
-    #else
-    return mxGetDoubles(prhs);
-    #endif
-}
+#include "mex.h"
+#include "matrix.h"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-
     if (nrhs < 3)
         mexErrMsgTxt("Wrong number of inputs.");
 
     for (int i=1; i<nrhs; i++)
-    #ifdef __SINGLE_PRECISION__
-        if (mxIsDouble(prhs[i]))
+        if (mxIsSingle(prhs[i]) == false)
             mexErrMsgTxt("all inputs must be single!");
-    #else
-        if (mxIsSingle(prhs[i]))
-            mexErrMsgTxt("all inputs must be double!");
-    #endif
+
 
     if (mxGetN(prhs[0]) != mxGetN(prhs[1]) || mxGetM(prhs[0]) != 3 || mxGetM(prhs[1]) != 3 || mxGetM(prhs[2]) != 3)
         mexErrMsgTxt("Input dimensions are wrong. Program expect following dimensions: start,3xN; end,3xN; grid,3xM");
 
-    _T *start = getPointer(prhs[0]);
-    _T *end   = getPointer(prhs[1]);
-    _T *grid  = getPointer(prhs[2]);
+    float *start = mxGetSingles(prhs[0]);
+    float *end   = mxGetSingles(prhs[1]);
+    float *grid  = mxGetSingles(prhs[2]);
 
     mwSize dims[2] = {3, mxGetN(prhs[2])};
-    plhs[0] = mxCreateNumericArray(2, dims, 
-    #ifdef __SINGLE_PRECISION__
-            mxSINGLE_CLASS, 
-    #else
-            mxDOUBLE_CLASS,
-    #endif
-            mxREAL);
-    _T *b1 = getPointer(plhs[0]);
+    plhs[0] = mxCreateNumericArray(2, dims, mxSINGLE_CLASS, mxREAL);
+    float *b1 = mxGetSingles(plhs[0]);
     if (calculate_b1(mxGetN(prhs[0]), start, end, mxGetN(prhs[2]), grid, b1) == false)
         mexErrMsgTxt("Simulation failed.");
 }

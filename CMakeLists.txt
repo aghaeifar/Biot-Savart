@@ -25,8 +25,6 @@ set_target_properties(biot_savart_shared PROPERTIES OUTPUT_NAME biot_savart)
 add_compile_definitions(__SINGLE_PRECISION__)
 #add_compile_definitions(__SEQUENTIAL__)  
 
-find_package(Matlab)
-
 if (UNIX)
     target_link_libraries(biot_savart_shared pthread tbb dl)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
@@ -37,8 +35,9 @@ if (WIN32)
     add_compile_definitions(__EXPORT_CLASS_BIOTSAVART__) 
 endif() 
 
-if(Matlab_FOUND)
-	matlab_add_mex(NAME biot_savart_mex SRC biot_savart.cpp R2018a) 
-endif()
+# find_package(Matlab)
+# if(Matlab_FOUND)
+# 	matlab_add_mex(NAME biot_savart SRC biot_savart.cpp R2018a) 
+# endif()
 
 
