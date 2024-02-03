@@ -72,6 +72,32 @@ imagesc(squeeze(Bz(N/2,:,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off;
 ```
 ![z component of magnetic field from a strait line](./img/1.jpg)
 
+```matlab
+N = 200;
+rng = linspace(-0.1, 0.1, N);
+[x, y, z] = ndgrid(rng, rng, rng);
+xyz = [x(:), y(:), z(:)]';  % in the form of 3xN, where N is number of spatial points
+
+L = 60;
+radius = 0.05;
+theta  = linspace(0, 2*pi, L+1)';
+segments = radius * [cos(theta), sin(theta), zeros(L+1,1)]'; % in the form of 3xL, where L is number of segments
+start = segments(:, 1:end-1);  % in the form of 3xL
+stop  = segments(:, 2:end);  % in the form of 3xL
+
+
+B = biot_savart(start, stop, xyz); % B is in the form of 3xN
+
+% show z component of magnetic field from a circular coil
+Bz = reshape(B(3,:), size(x));
+tiledlayout('horizontal', 'TileSpacing','tight','Padding', 'tight'); nexttile;
+plot3(segments(1,:), segments(2,:), segments(3,:), 'LineWidth', 3); grid on; nexttile;
+imagesc(squeeze(Bz(:,:,N/2))); clim([-.4e-4, 0.4e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(Bz(:,N/2,:))); clim([-.4e-4, 0.4e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(Bz(N/2,:,:))); clim([-.4e-4, 0.4e-4]); axis image; axis off; 
+```
+![z component of magnetic field from a strait line](./img/2.jpg)
+
 ### Python
 To do...
 
