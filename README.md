@@ -43,11 +43,36 @@ mex biot_savart.cpp  -lm -ldl -ltbb -R2018a CXXFLAGS="\$CXXFLAGS -std=c++17"
 ```
 #### Windows
 ```sh
-mex biot_savart.cpp  -R2018a COMPFLAGS="$COMPFLAGS /std:c++17""
+mex biot_savart.cpp  -R2018a COMPFLAGS="$COMPFLAGS /std:c++17"
 ```
 
 My test environment: Ubuntu 22.04 with g++ 11.4 + Windows 11 with MATLAB R2023a and Microsoft Visual C++ 2022.
 
+## Example:
+### MATLAB
+
+```matlab
+N = 100;
+rng = linspace(-0.1, 0.1, N);
+[x, y, z] = ndgrid(rng, rng, rng);
+xyz = [x(:), y(:), z(:)]';
+
+start = [-0.05, 0, 0]';
+stop  = [0.05, 0, 0]';
+
+b1 = biot_savart(start, stop, xyz);
+b1z = reshape(b1(3,:), size(x));
+
+tiledlayout('horizontal', 'TileSpacing','tight','Padding', 'tight'); nexttile;
+plot3([start(1), stop(1)], [start(2), stop(2)], [start(3), stop(3)], 'LineWidth', 3); grid on; nexttile;
+imagesc(squeeze(b1z(:,:,N/2))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(b1z(:,N/2,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(b1z(N/2,:,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; 
+```
+![z component of magnetic field from a strait line](./img/1.jpg)
+
+### Python
+To do...
 
 ## Contributing:
 
