@@ -55,19 +55,20 @@ My test environment: Ubuntu 22.04 with g++ 11.4 + Windows 11 with MATLAB R2023a 
 N = 100;
 rng = linspace(-0.1, 0.1, N);
 [x, y, z] = ndgrid(rng, rng, rng);
-xyz = [x(:), y(:), z(:)]';
+xyz = [x(:), y(:), z(:)]';  % in the form of 3xN, where N is number of spatial points
 
-start = [-0.05, 0, 0]';
-stop  = [0.05, 0, 0]';
+start = [-0.05, 0, 0]'; % in the form of 3xL, where L is number of segments
+stop  = [0.05, 0, 0]';  % in the form of 3xL
 
-b1 = biot_savart(start, stop, xyz);
-b1z = reshape(b1(3,:), size(x));
+B = biot_savart(start, stop, xyz); % B is in the form of 3xN
 
+% show z component of magnetic field from a strait line 
+Bz = reshape(B(3,:), size(x));
 tiledlayout('horizontal', 'TileSpacing','tight','Padding', 'tight'); nexttile;
 plot3([start(1), stop(1)], [start(2), stop(2)], [start(3), stop(3)], 'LineWidth', 3); grid on; nexttile;
-imagesc(squeeze(b1z(:,:,N/2))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
-imagesc(squeeze(b1z(:,N/2,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
-imagesc(squeeze(b1z(N/2,:,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; 
+imagesc(squeeze(Bz(:,:,N/2))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(Bz(:,N/2,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; nexttile;
+imagesc(squeeze(Bz(N/2,:,:))); clim([-.3e-4, 0.3e-4]); axis image; axis off; 
 ```
 ![z component of magnetic field from a strait line](./img/1.jpg)
 
