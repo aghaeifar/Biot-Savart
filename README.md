@@ -85,7 +85,6 @@ segments = radius * [cos(theta), sin(theta), zeros(L+1,1)]'; % in the form of 3x
 start = segments(:, 1:end-1);  % in the form of 3xL
 stop  = segments(:, 2:end);  % in the form of 3xL
 
-
 B = biot_savart(start, stop, xyz); % B is in the form of 3xN
 
 % show z component of magnetic field from a circular coil
