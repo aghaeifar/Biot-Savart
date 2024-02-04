@@ -28,7 +28,7 @@ Clone Biot-Savart simulator from repository:
 git clone https://github.com/aghaeifar/Biot-Savart.git
 ```
 
-Build and install Bloch simulator as a shared library:
+Build and install as a shared library:
 
 ```sh
 $ cd Biot-Savart
@@ -46,7 +46,7 @@ mex biot_savart.cpp  -lm -ldl -ltbb -R2018a CXXFLAGS="\$CXXFLAGS -std=c++17"
 mex biot_savart.cpp  -R2018a COMPFLAGS="$COMPFLAGS /std:c++17"
 ```
 
-My test environment: Ubuntu 22.04 with g++ 11.4 + Windows 11 with MATLAB R2023a and Microsoft Visual C++ 2022.
+Program building is tested in Ubuntu 22.04 with g++ 11.4 and Windows 11 with MATLAB R2023a and Microsoft Visual C++ 2022.
 
 ## Example:
 ### MATLAB
