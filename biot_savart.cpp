@@ -6,12 +6,12 @@
 // reference: https://physics.stackexchange.com/questions/662024/
 // ---------------------------------------------------------
 
-#include <execution>
 #include <algorithm>
 #include <iostream>
 #include <numeric>
 #include <cmath>
 #include <vector>   
+#include <chrono>
 
 const double tooSmall = 1e-12;
 
@@ -38,9 +38,9 @@ void core(const double *start,
                 const double *grid,
                 double *b1)
 {
-    double end_grid[3]   = {(end[0] - grid[0])  , (end[1] - grid[1])  , (end[2] - grid[2])};
-    double start_grid[3] = {(start[0] - grid[0]), (start[1] - grid[1]), (start[2] - grid[2])};
-    double end_start[3]  = {(end[0] - start[0]) , (end[1] - start[1]) , (end[2] - start[2])};
+    double end_grid[3]    = {(end[0] - grid[0])  , (end[1] - grid[1])  , (end[2] - grid[2])};
+    double start_grid[3]  = {(start[0] - grid[0]), (start[1] - grid[1]), (start[2] - grid[2])};
+    double end_start[3]   = {(end[0] - start[0]) , (end[1] - start[1]) , (end[2] - start[2])};
     double norm_end_start = norm(end_start);
     double norm_end_grid  = norm(end_grid);
     double norm_start_grid= norm(start_grid);
@@ -57,14 +57,14 @@ void core(const double *start,
     double cos_theta1 = dot(end_grid, end_start) / (norm_end_grid * norm_end_start);
     double cos_theta2 = dot(start_grid, end_start) / (norm_start_grid * norm_end_start);
     // absolute value of B1
-    double absB1 = distance > tooSmall ? (cos_theta1 - cos_theta2) / distance : 0.f;
+    double absB1 = distance > tooSmall ? (cos_theta1 - cos_theta2) / distance : 0.;
     // direction of B1
     double dir[3];
     cross(end_grid, end_start, dir);
 
     // we need normalized dir
     double norm_dir = norm(dir);
-    absB1 = norm_dir>tooSmall ? absB1/norm_dir : 0.f;
+    absB1 = norm_dir>tooSmall ? absB1/norm_dir : 0.;
 
     b1[0] += dir[0] * absB1;
     b1[1] += dir[1] * absB1;
@@ -83,17 +83,16 @@ bool calculate_b1(const uint32_t num_seg,      // number of wire segments
     // reset b1
     std::fill(b1_xyz, b1_xyz + 3*num_grid, 0.f);
     // loop over wire segments
+    auto start = std::chrono::steady_clock::now();
     for (uint32_t seg = 0; seg < num_seg; seg++)
     {
-        const double *start = seg_start_xyz + 3*seg;
-        const double *end   = seg_end_xyz   + 3*seg;
+        const auto *start = seg_start_xyz + 3*seg;
+        const auto *end   = seg_end_xyz   + 3*seg;
         try
         {
-            std::vector<uint32_t> a(num_grid);
-            std::iota (a.begin(), a.end(),0);
-            std::for_each (std::execution::par_unseq, std::begin(a), std::end(a), [&](uint32_t grid){
-                core(start, end, grid_xyz + 3*grid, b1_xyz + 3*grid);
-            });      
+            #pragma omp parallel for
+            for(uint32_t grid=0; grid<num_grid; grid++)
+                core(start, end, grid_xyz + 3*grid, b1_xyz + 3*grid);    
         }
         catch( std::exception &ex )
         {
@@ -105,6 +104,8 @@ bool calculate_b1(const uint32_t num_seg,      // number of wire segments
 
     for (uint32_t grid = 0; grid < 3*num_grid; grid++)
         b1_xyz[grid] *= 1e-7; // convert to T
+    
+    std::cout << "Simulation finished in " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count()/1000. << " second(s)."  << std::endl;
 
     return true;
 }
@@ -115,12 +116,13 @@ bool calculate_b1(const uint32_t num_seg,      // number of wire segments
 
 extern "C" {
 
-bool simulate(const uint32_t num_seg, 
-              const double *seg_start_xyz, 
-              const double *seg_end_xyz, 
-              const uint32_t num_grid, 
-              const double *grid_xyz, 
-              double *b1_xyz)
+bool simulate(const uint32_t num_seg, 		// number of wire segments
+              const double *seg_start_xyz, 	// head of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+              const double *seg_end_xyz, 	// tail of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+              const uint32_t num_grid, 		// number of spatial points where B1 is calculated
+              const double *grid_xyz, 		// spatial points [m], 3xM matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
+              double *b1_xyz				// output B1 field [T], 3xM matrix, column-major order {Bx1,By1,Bz1,...,Bxm,Bym,Bzm}
+			  )				
 { 
     return calculate_b1(num_seg, seg_start_xyz, seg_end_xyz, num_grid, grid_xyz, b1_xyz);
 }
@@ -131,6 +133,7 @@ bool simulate(const uint32_t num_seg,
 
 // ---------------------------------------------------------
 // MATLAB interface
+// B = biot_savart(start, stop, xyz);
 // ---------------------------------------------------------
 #ifdef MATLAB_MEX_FILE 
 
@@ -142,7 +145,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (nrhs < 3)
         mexErrMsgTxt("Wrong number of inputs.");
 
-    for (int i=1; i<nrhs; i++)
+    for (int i=1; i<nrhs; i++) 
         if (mxIsDouble(prhs[i]) == false)
             mexErrMsgTxt("all inputs must be double!");
 
