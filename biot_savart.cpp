@@ -71,8 +71,12 @@ void core(const double *start,
     b1[2] += dir[2] * absB1;
 }
 
+// ---------------------------------------------------------
+// C interface
+// ---------------------------------------------------------
 
-bool calculate_b1(const uint32_t num_seg,      // number of wire segments
+extern "C" {
+bool calculate_b0(const uint32_t num_seg,      // number of wire segments
                   const double *seg_start_xyz, // head of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
                   const double *seg_end_xyz,   // tail of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
                   const uint32_t num_grid,     // number of spatial points where B1 is calculated
@@ -110,26 +114,7 @@ bool calculate_b1(const uint32_t num_seg,      // number of wire segments
     return true;
 }
 
-// ---------------------------------------------------------
-// C interface
-// ---------------------------------------------------------
-
-extern "C" {
-
-bool simulate(const uint32_t num_seg, 		// number of wire segments
-              const double *seg_start_xyz, 	// head of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
-              const double *seg_end_xyz, 	// tail of segment [m], 3xN matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
-              const uint32_t num_grid, 		// number of spatial points where B1 is calculated
-              const double *grid_xyz, 		// spatial points [m], 3xM matrix, column-major order {x1,y1,z1,...,xm,ym,zm}
-              double *b1_xyz				// output B1 field [T], 3xM matrix, column-major order {Bx1,By1,Bz1,...,Bxm,Bym,Bzm}
-			  )				
-{ 
-    return calculate_b1(num_seg, seg_start_xyz, seg_end_xyz, num_grid, grid_xyz, b1_xyz);
-}
-
 } // extern "C"
-
-
 
 // ---------------------------------------------------------
 // MATLAB interface
@@ -159,7 +144,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mwSize dims[2] = {3, mxGetN(prhs[2])};
     plhs[0] = mxCreateNumericArray(2, dims, mxDOUBLE_CLASS, mxREAL);
     double *b1 = mxGetDoubles(plhs[0]);
-    if (calculate_b1((uint32_t)mxGetN(prhs[0]), start, end, (uint32_t)mxGetN(prhs[2]), grid, b1) == false)
+    if (calculate_b0((uint32_t)mxGetN(prhs[0]), start, end, (uint32_t)mxGetN(prhs[2]), grid, b1) == false)
         mexErrMsgTxt("Simulation failed.");
 }
 

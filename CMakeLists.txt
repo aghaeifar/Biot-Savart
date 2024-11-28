@@ -29,6 +29,11 @@ find_package(OpenMP)
 add_library(biot_savart_shared SHARED biot_savart.cpp) 
 set_target_properties(biot_savart_shared PROPERTIES OUTPUT_NAME biot_savart)
 
+if(OpenMP_CXX_FOUND) # Check if OpenMP was successfully found for C++
+  target_link_libraries(biot_savart_shared OpenMP::OpenMP_CXX)
+  message(STATUS "OpenMP enabled for biot_savart_shared")
+endif()
+
 if (UNIX)
     target_link_libraries(biot_savart_shared pthread)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
